@@ -38,10 +38,13 @@ if [ -d /opt/gnubok-template/public ]; then
   cp -R /opt/gnubok-template/public/. /app/public/
 fi
 
+# Files copied from the builder image can preserve restrictive modes.
+# The server later runs as nextjs:nodejs, so it must be able to read the build.
+chmod -R a+rX /app/.next /app/public
+
 # Ensure Next.js's runtime cache directory is writable by the unprivileged user.
 mkdir -p /app/.next/cache
-chown -R nextjs:nodejs /app/.next/cache
-chmod 755 /app/.next/cache
+chmod -R a+rwX /app/.next/cache
 
 # Substitute build-time placeholder sentinels with runtime env values.
 find /app/.next -type f \( -name '*.js' -o -name '*.html' -o -name '*.rsc' -o -name '*.meta' -o -name '*.body' \) -exec sed -i \
