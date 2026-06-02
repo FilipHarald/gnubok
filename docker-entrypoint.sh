@@ -47,7 +47,7 @@ mkdir -p /app/.next/cache
 chmod -R a+rwX /app/.next/cache
 
 # Substitute build-time placeholder sentinels with runtime env values.
-find /app/.next -type f \( -name '*.js' -o -name '*.html' -o -name '*.rsc' -o -name '*.meta' -o -name '*.body' \) -exec sed -i \
+find /app/.next -type f \( -name '*.js' -o -name '*.html' -o -name '*.rsc' -o -name '*.meta' -o -name '*.body' -o -name '*.json' \) -exec sed -i \
   -e "s|__NEXT_PUBLIC_SUPABASE_URL__|${NEXT_PUBLIC_SUPABASE_URL}|g" \
   -e "s|__NEXT_PUBLIC_SUPABASE_ANON_KEY__|${NEXT_PUBLIC_SUPABASE_ANON_KEY}|g" \
   -e "s|__NEXT_PUBLIC_APP_URL__|${NEXT_PUBLIC_APP_URL}|g" \
@@ -56,6 +56,26 @@ find /app/.next -type f \( -name '*.js' -o -name '*.html' -o -name '*.rsc' -o -n
   -e "s|__NEXT_PUBLIC_REQUIRE_MFA__|${NEXT_PUBLIC_REQUIRE_MFA:-false}|g" \
   -e "s|__NEXT_PUBLIC_BRANDING_APP_NAME__|${NEXT_PUBLIC_BRANDING_APP_NAME:-Gnubok}|g" \
   {} +
+
+# Next standalone inlines next.config.js headers into server.js, outside
+# /app/.next. The image root is read-only at runtime, so substitute a writable
+# copy under /app/.next/cache and run Node from that copy. Keeping it under
+# /app preserves Node's module resolution through /app/node_modules.
+if [ -f /app/server.js ] && [ "$1" = "node" ] && [ "${2:-}" = "server.js" ]; then
+  cp /app/server.js /app/.next/cache/gnubok-server.js
+  sed -i \
+    -e "s|const dir = path.join(__dirname)|const dir = '/app'|" \
+    -e "s|process.chdir(__dirname)|process.chdir('/app')|" \
+    -e "s|__NEXT_PUBLIC_SUPABASE_URL__|${NEXT_PUBLIC_SUPABASE_URL}|g" \
+    -e "s|__NEXT_PUBLIC_SUPABASE_ANON_KEY__|${NEXT_PUBLIC_SUPABASE_ANON_KEY}|g" \
+    -e "s|__NEXT_PUBLIC_APP_URL__|${NEXT_PUBLIC_APP_URL}|g" \
+    -e "s|__NEXT_PUBLIC_VAPID_PUBLIC_KEY__|${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}|g" \
+    -e "s|__NEXT_PUBLIC_SELF_HOSTED__|${NEXT_PUBLIC_SELF_HOSTED:-true}|g" \
+    -e "s|__NEXT_PUBLIC_REQUIRE_MFA__|${NEXT_PUBLIC_REQUIRE_MFA:-false}|g" \
+    -e "s|__NEXT_PUBLIC_BRANDING_APP_NAME__|${NEXT_PUBLIC_BRANDING_APP_NAME:-Gnubok}|g" \
+    /app/.next/cache/gnubok-server.js
+  set -- "$1" /app/.next/cache/gnubok-server.js
+fi
 
 # Stamp the service worker fallback notification title with the brand name.
 # public/sw.js is served as a static file (not bundled by Next), so NEXT_PUBLIC_*
