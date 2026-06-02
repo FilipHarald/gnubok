@@ -2,11 +2,10 @@ services:
   app:
     image: ghcr.io/erp-mafia/gnubok:${IMAGE_TAG:-latest}
     env_file: .env
-    # Expose the selected host port so external gateways can port-forward to it.
-    # Override PORT in .env to change the host port, or use the caddy overlay to
-    # remove the host binding and route via Caddy instead.
-    ports:
-      - "${PORT:-3000}:3000"
+    # Port 3000 exposed on the internal Docker network — put a reverse proxy
+    # (e.g. Caddy) in front to terminate TLS.
+    expose:
+      - "3000"
     security_opt:
       - no-new-privileges:true
     cap_drop:
